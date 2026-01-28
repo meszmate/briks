@@ -12,12 +12,12 @@ import (
 
 // GameOverModel represents the game over screen.
 type GameOverModel struct {
-	score    int
-	level    int
-	lines    int
-	pieces   int
-	rank     int // 0 = didn't make high scores
-	isNewHS  bool
+	score   int
+	level   int
+	lines   int
+	pieces  int
+	rank    int
+	isNewHS bool
 }
 
 // NewGameOverModel creates a game over model and saves the score.
@@ -47,10 +47,11 @@ func NewGameOverModel(engine *game.Engine, hs *config.HighScores) GameOverModel 
 
 // View renders the game over screen.
 func (m GameOverModel) View(s Styles) string {
+	t := s.Theme
 	var sb strings.Builder
 
 	title := lipgloss.NewStyle().
-		Foreground(s.Theme.Main).
+		Foreground(t.Main).
 		Bold(true).
 		Render("GAME OVER")
 
@@ -59,14 +60,14 @@ func (m GameOverModel) View(s Styles) string {
 
 	if m.isNewHS {
 		sb.WriteString(lipgloss.NewStyle().
-			Foreground(s.Theme.Main).
+			Foreground(t.Main).
 			Bold(true).
-			Render(fmt.Sprintf("NEW HIGH SCORE! #%d", m.rank)))
+			Render(fmt.Sprintf("NEW HIGH SCORE #%d!", m.rank)))
 		sb.WriteString("\n\n")
 	}
 
-	labelStyle := lipgloss.NewStyle().Foreground(s.Theme.Sub).Width(10)
-	valueStyle := lipgloss.NewStyle().Foreground(s.Theme.FG).Bold(true)
+	labelStyle := lipgloss.NewStyle().Foreground(t.Sub).Width(8)
+	valueStyle := lipgloss.NewStyle().Foreground(t.FG)
 
 	sb.WriteString(labelStyle.Render("Score") + valueStyle.Render(fmt.Sprintf("%d", m.score)))
 	sb.WriteString("\n")
@@ -77,11 +78,12 @@ func (m GameOverModel) View(s Styles) string {
 	sb.WriteString(labelStyle.Render("Pieces") + valueStyle.Render(fmt.Sprintf("%d", m.pieces)))
 	sb.WriteString("\n\n")
 
-	sb.WriteString(lipgloss.NewStyle().Foreground(s.Theme.Sub).Faint(true).Render("r to restart, q/esc to menu"))
+	dimStyle := lipgloss.NewStyle().Foreground(t.SubAlt)
+	sb.WriteString(dimStyle.Render("r restart  q menu"))
 
 	return lipgloss.NewStyle().
-		Padding(2, 4).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(s.Theme.Sub).
+		Padding(1, 3).
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(t.SubAlt).
 		Render(sb.String())
 }

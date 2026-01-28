@@ -28,7 +28,7 @@ func (m KeyBindsModel) Update(msg tea.KeyMsg, keys *config.KeyBindings) KeyBinds
 		m.cursor = (m.cursor + 1) % len(config.AllActions)
 	case "k", "up":
 		m.cursor = (m.cursor - 1 + len(config.AllActions)) % len(config.AllActions)
-	case "enter":
+	case "enter", "l":
 		m.listening = true
 	}
 	return m
@@ -55,10 +55,11 @@ func (m KeyBindsModel) HandleKey(msg tea.KeyMsg, keys *config.KeyBindings) KeyBi
 
 // View renders the key bindings screen.
 func (m KeyBindsModel) View(s Styles) string {
+	t := s.Theme
 	var sb strings.Builder
 
 	title := lipgloss.NewStyle().
-		Foreground(s.Theme.Main).
+		Foreground(t.Main).
 		Bold(true).
 		Render("KEY BINDINGS")
 
@@ -67,46 +68,48 @@ func (m KeyBindsModel) View(s Styles) string {
 
 	for i, action := range config.AllActions {
 		label := config.ActionLabel(action)
-		labelStyle := lipgloss.NewStyle().Width(16)
+		labelStyle := lipgloss.NewStyle().Width(14)
 
 		var keyStr string
 		if m.listening && i == m.cursor {
 			keyStr = lipgloss.NewStyle().
-				Foreground(s.Theme.Main).
-				Bold(true).
-				Blink(true).
-				Render("press a key...")
+				Foreground(t.Main).
+				Italic(true).
+				Render("press key...")
 		} else {
 			binds := m.keys.Bindings[action]
+			displayBinds := make([]string, len(binds))
+			for j, b := range binds {
+				displayBinds[j] = config.KeyDisplay(b)
+			}
 			keyStr = lipgloss.NewStyle().
-				Foreground(s.Theme.FG).
-				Render(strings.Join(binds, ", "))
+				Foreground(t.FG).
+				Render(strings.Join(displayBinds, ", "))
 		}
 
 		if i == m.cursor {
-			sb.WriteString(lipgloss.NewStyle().
-				Foreground(s.Theme.Main).
-				Bold(true).
-				Render("▸ "))
-			sb.WriteString(labelStyle.Foreground(s.Theme.Main).Render(label))
+			sb.WriteString(lipgloss.NewStyle().Foreground(t.Main).Render(" > "))
+			sb.WriteString(labelStyle.Foreground(t.FG).Render(label))
 			sb.WriteString(keyStr)
 		} else {
-			sb.WriteString(lipgloss.NewStyle().
-				Foreground(s.Theme.Sub).
-				Render("  "))
-			sb.WriteString(labelStyle.Foreground(s.Theme.Sub).Render(label))
-			sb.WriteString(keyStr)
+			sb.WriteString(lipgloss.NewStyle().Foreground(t.Sub).Render("   "))
+			sb.WriteString(labelStyle.Foreground(t.Sub).Render(label))
+			sb.WriteString(lipgloss.NewStyle().Foreground(t.Sub).Render(strings.Join(func() []string {
+				binds := m.keys.Bindings[action]
+				displayBinds := make([]string, len(binds))
+				for j, b := range binds {
+					displayBinds[j] = config.KeyDisplay(b)
+				}
+				return displayBinds
+			}(), ", ")))
 		}
 		sb.WriteString("\n")
 	}
 
 	sb.WriteString("\n")
 	sb.WriteString(lipgloss.NewStyle().
-		Foreground(s.Theme.Sub).
-		Faint(true).
-		Render("enter to rebind, esc to cancel, q to save & back"))
+		Foreground(t.SubAlt).
+		Render("   enter rebind  j/k navigate  q save"))
 
-	return lipgloss.NewStyle().
-		Padding(2, 4).
-		Render(sb.String())
+	return sb.String()
 }

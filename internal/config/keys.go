@@ -56,17 +56,17 @@ type KeyBindings struct {
 	Bindings map[Action][]string `json:"bindings"`
 }
 
-// DefaultKeyBindings returns the default key bindings.
+// DefaultKeyBindings returns the default key bindings (vim-style).
 func DefaultKeyBindings() *KeyBindings {
 	return &KeyBindings{
 		Bindings: map[Action][]string{
-			ActionMoveLeft:  {"left", "a"},
-			ActionMoveRight: {"right", "d"},
-			ActionSoftDrop:  {"down", "s"},
-			ActionHardDrop:  {"up", " "},
-			ActionRotateCW:  {"w", "e"},
-			ActionRotateCCW: {"q", "z"},
-			ActionHold:      {"c", "shift+c"},
+			ActionMoveLeft:  {"h", "left"},
+			ActionMoveRight: {"l", "right"},
+			ActionSoftDrop:  {"j", "down"},
+			ActionHardDrop:  {" ", "enter"},
+			ActionRotateCW:  {"k", "up", "x"},
+			ActionRotateCCW: {"z"},
+			ActionHold:      {"c"},
 			ActionPause:     {"p", "esc"},
 		},
 	}
@@ -87,6 +87,11 @@ func (kb *KeyBindings) MatchAction(key string) (Action, bool) {
 // SetBinding sets the keys for an action.
 func (kb *KeyBindings) SetBinding(action Action, keys []string) {
 	kb.Bindings[action] = keys
+}
+
+// GetKeys returns the keys bound to an action.
+func (kb *KeyBindings) GetKeys(action Action) []string {
+	return kb.Bindings[action]
 }
 
 func keysPath() (string, error) {
@@ -134,4 +139,26 @@ func (kb *KeyBindings) Save() error {
 	}
 
 	return os.WriteFile(path, data, 0644)
+}
+
+// KeyDisplay returns a readable display string for a key.
+func KeyDisplay(key string) string {
+	switch key {
+	case " ":
+		return "space"
+	case "enter":
+		return "enter"
+	case "esc":
+		return "esc"
+	case "up":
+		return "↑"
+	case "down":
+		return "↓"
+	case "left":
+		return "←"
+	case "right":
+		return "→"
+	default:
+		return key
+	}
 }

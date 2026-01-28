@@ -26,7 +26,7 @@ func (p *Piece) Clone() Piece {
 // Offsets are relative to the piece's position (top-left of bounding box).
 var PieceRotations = map[PieceType][4][]Position{
 	PieceI: {
-		// Rot0
+		// Rot0 - horizontal I
 		{{0, 0}, {0, 1}, {0, 2}, {0, 3}},
 		// Rot1
 		{{0, 2}, {1, 2}, {2, 2}, {3, 2}},
@@ -75,7 +75,6 @@ var PieceRotations = map[PieceType][4][]Position{
 
 // SRS wall kick data.
 // WallKicksJLSTZ is for J, L, S, T, Z pieces.
-// Each entry maps (fromRotation, toRotation) to a list of kick offsets (col, row).
 var WallKicksJLSTZ = map[[2]Rotation][]Position{
 	{Rot0, Rot1}: {{0, 0}, {-1, 0}, {-1, -1}, {0, 2}, {-1, 2}},
 	{Rot1, Rot0}: {{0, 0}, {1, 0}, {1, 1}, {0, -2}, {1, -2}},
@@ -100,7 +99,6 @@ var WallKicksI = map[[2]Rotation][]Position{
 }
 
 // GetWallKicks returns the wall kick offsets for a rotation attempt.
-// Offsets are (col_offset, row_offset) — col=Position.Col, row=Position.Row.
 func GetWallKicks(pieceType PieceType, from, to Rotation) []Position {
 	key := [2]Rotation{from, to}
 	if pieceType == PieceI {
@@ -113,14 +111,19 @@ func GetWallKicks(pieceType PieceType, from, to Rotation) []Position {
 }
 
 // SpawnPosition returns the starting position for a piece type.
+// Pieces spawn at the top of the visible area, centered horizontally.
 func SpawnPosition(pt PieceType) Position {
-	// Pieces spawn in the buffer zone (rows 0-3), centered horizontally.
+	// BufferRows = 4, so visible area starts at row 4
+	// Spawn pieces so their top cells are at row 4 (first visible row)
 	switch pt {
 	case PieceI:
-		return Position{Row: 0, Col: 3}
+		// I piece in Rot0 has all cells at row 0, so Pos.Row = 4 puts cells at row 4
+		return Position{Row: BufferRows, Col: 3}
 	case PieceO:
-		return Position{Row: 0, Col: 4}
+		// O piece has cells at rows 0-1, so Pos.Row = 4 puts cells at rows 4-5
+		return Position{Row: BufferRows, Col: 4}
 	default:
-		return Position{Row: 0, Col: 3}
+		// Most pieces have cells at rows 0-1, so Pos.Row = 4 puts cells at rows 4-5
+		return Position{Row: BufferRows, Col: 3}
 	}
 }

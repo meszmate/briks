@@ -44,7 +44,7 @@ func (m SettingsModel) Update(msg tea.KeyMsg, cfg *config.Config) SettingsModel 
 		m.cursor = (m.cursor + 1) % len(settingItems)
 	case "k", "up":
 		m.cursor = (m.cursor - 1 + len(settingItems)) % len(settingItems)
-	case "l", "right", "enter":
+	case "l", "right":
 		m.cycleValue(cfg, 1)
 	case "h", "left":
 		m.cycleValue(cfg, -1)
@@ -135,10 +135,11 @@ func getValue(cfg *config.Config, key string) string {
 
 // View renders the settings screen.
 func (m SettingsModel) View(s Styles) string {
+	t := s.Theme
 	var sb strings.Builder
 
 	title := lipgloss.NewStyle().
-		Foreground(s.Theme.Main).
+		Foreground(t.Main).
 		Bold(true).
 		Render("SETTINGS")
 
@@ -146,38 +147,25 @@ func (m SettingsModel) View(s Styles) string {
 	sb.WriteString("\n\n")
 
 	for i, item := range settingItems {
-		label := lipgloss.NewStyle().Width(16)
+		labelStyle := lipgloss.NewStyle().Width(14)
 		value := getValue(m.cfg, item.key)
 
 		if i == m.cursor {
-			sb.WriteString(lipgloss.NewStyle().
-				Foreground(s.Theme.Main).
-				Bold(true).
-				Render("▸ "))
-			sb.WriteString(label.Foreground(s.Theme.Main).Render(item.label))
-			sb.WriteString(lipgloss.NewStyle().
-				Foreground(s.Theme.FG).
-				Bold(true).
-				Render("◂ " + value + " ▸"))
+			sb.WriteString(lipgloss.NewStyle().Foreground(t.Main).Render(" > "))
+			sb.WriteString(labelStyle.Foreground(t.FG).Render(item.label))
+			sb.WriteString(lipgloss.NewStyle().Foreground(t.Main).Render("< " + value + " >"))
 		} else {
-			sb.WriteString(lipgloss.NewStyle().
-				Foreground(s.Theme.Sub).
-				Render("  "))
-			sb.WriteString(label.Foreground(s.Theme.Sub).Render(item.label))
-			sb.WriteString(lipgloss.NewStyle().
-				Foreground(s.Theme.Sub).
-				Render("  " + value))
+			sb.WriteString(lipgloss.NewStyle().Foreground(t.Sub).Render("   "))
+			sb.WriteString(labelStyle.Foreground(t.Sub).Render(item.label))
+			sb.WriteString(lipgloss.NewStyle().Foreground(t.Sub).Render("  " + value))
 		}
 		sb.WriteString("\n")
 	}
 
 	sb.WriteString("\n")
 	sb.WriteString(lipgloss.NewStyle().
-		Foreground(s.Theme.Sub).
-		Faint(true).
-		Render("h/l or ←/→ to change, q/esc to save & back"))
+		Foreground(t.SubAlt).
+		Render("   h/l change  j/k navigate  q save"))
 
-	return lipgloss.NewStyle().
-		Padding(2, 4).
-		Render(sb.String())
+	return sb.String()
 }

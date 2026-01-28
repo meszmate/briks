@@ -41,45 +41,40 @@ func (m *MenuModel) Prev() {
 
 // View renders the menu.
 func (m MenuModel) View(s Styles) string {
+	t := s.Theme
 	var sb strings.Builder
 
-	title := lipgloss.NewStyle().
-		Foreground(s.Theme.Main).
-		Bold(true).
-		MarginBottom(1).
-		Render("BRIKS")
+	// Logo
+	logo := `
+ ██████╗ ██████╗ ██╗██╗  ██╗███████╗
+ ██╔══██╗██╔══██╗██║██║ ██╔╝██╔════╝
+ ██████╔╝██████╔╝██║█████╔╝ ███████╗
+ ██╔══██╗██╔══██╗██║██╔═██╗ ╚════██║
+ ██████╔╝██║  ██║██║██║  ██╗███████║
+ ╚═════╝ ╚═╝  ╚═╝╚═╝╚═╝  ╚═╝╚══════╝`
 
-	subtitle := lipgloss.NewStyle().
-		Foreground(s.Theme.Sub).
-		MarginBottom(2).
-		Render("Terminal Tetris")
-
-	sb.WriteString(title)
-	sb.WriteString("\n")
-	sb.WriteString(subtitle)
+	sb.WriteString(lipgloss.NewStyle().Foreground(t.Main).Render(logo))
 	sb.WriteString("\n\n")
 
+	// Menu items
 	for i, item := range menuItems {
 		if i == m.cursor {
 			sb.WriteString(lipgloss.NewStyle().
-				Foreground(s.Theme.Main).
+				Foreground(t.Main).
 				Bold(true).
-				Render("▸ " + item))
+				Render(" > " + item))
 		} else {
 			sb.WriteString(lipgloss.NewStyle().
-				Foreground(s.Theme.Sub).
-				Render("  " + item))
+				Foreground(t.Sub).
+				Render("   " + item))
 		}
 		sb.WriteString("\n")
 	}
 
 	sb.WriteString("\n")
 	sb.WriteString(lipgloss.NewStyle().
-		Foreground(s.Theme.Sub).
-		Faint(true).
-		Render("j/k or ↑/↓ to navigate, enter to select"))
+		Foreground(t.SubAlt).
+		Render("   j/k navigate  enter select  q quit"))
 
-	return lipgloss.NewStyle().
-		Padding(2, 4).
-		Render(sb.String())
+	return sb.String()
 }

@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -17,24 +19,14 @@ type GameModel struct {
 	rainbow  *theme.RainbowState
 	paused   bool
 	gameOver bool
-
-	// DAS/ARR state.
-	dasAction   config.Action
-	dasStarted  bool
-	dasActive   bool
-	dasTimer    time.Time
-	dasInterval int
-	arrInterval int
 }
 
 // NewGameModel creates a new gameplay model.
 func NewGameModel(cfg *config.Config, keys *config.KeyBindings, rainbow *theme.RainbowState) GameModel {
 	return GameModel{
-		engine:      game.NewEngine(cfg.StartLevel, cfg.PreviewCount),
-		keys:        keys,
-		rainbow:     rainbow,
-		dasInterval: cfg.DAS,
-		arrInterval: cfg.ARR,
+		engine:  game.NewEngine(cfg.StartLevel, cfg.PreviewCount),
+		keys:    keys,
+		rainbow: rainbow,
 	}
 }
 
@@ -58,16 +50,6 @@ func (g GameModel) gravityTick() tea.Cmd {
 func (g GameModel) lockTick() tea.Cmd {
 	return tea.Tick(50*time.Millisecond, func(t time.Time) tea.Msg {
 		return LockTickMsg{Time: t}
-	})
-}
-
-func (g GameModel) dasTick() tea.Cmd {
-	d := time.Duration(g.arrInterval) * time.Millisecond
-	if d < time.Millisecond {
-		d = time.Millisecond
-	}
-	return tea.Tick(d, func(t time.Time) tea.Msg {
-		return DASTickMsg{Time: t}
 	})
 }
 
@@ -112,24 +94,6 @@ func (g GameModel) Update(msg tea.Msg, keys *config.KeyBindings) (GameModel, tea
 		}
 		return g, g.lockTick()
 
-	case DASTickMsg:
-		if g.engine.State == game.StatePlaying && g.dasStarted {
-			if !g.dasActive {
-				// DAS delay just elapsed — activate ARR.
-				g.dasActive = true
-			}
-			switch g.dasAction {
-			case config.ActionMoveLeft:
-				g.engine.MoveLeft()
-			case config.ActionMoveRight:
-				g.engine.MoveRight()
-			case config.ActionSoftDrop:
-				g.engine.SoftDrop()
-			}
-			return g, g.dasTick()
-		}
-		return g, nil
-
 	case RainbowTickMsg:
 		if g.rainbow != nil {
 			g.rainbow.Tick(0.05)
@@ -154,13 +118,10 @@ func (g GameModel) handleKey(msg tea.KeyMsg, keys *config.KeyBindings) (GameMode
 	switch action {
 	case config.ActionMoveLeft:
 		g.engine.MoveLeft()
-		return g.startDAS(config.ActionMoveLeft)
 	case config.ActionMoveRight:
 		g.engine.MoveRight()
-		return g.startDAS(config.ActionMoveRight)
 	case config.ActionSoftDrop:
 		g.engine.SoftDrop()
-		return g.startDAS(config.ActionSoftDrop)
 	case config.ActionHardDrop:
 		g.engine.HardDrop()
 		if g.engine.State == game.StateGameOver {
@@ -185,35 +146,42 @@ func (g GameModel) handleKey(msg tea.KeyMsg, keys *config.KeyBindings) (GameMode
 	return g, nil
 }
 
-func (g GameModel) startDAS(action config.Action) (GameModel, tea.Cmd) {
-	g.dasAction = action
-	g.dasStarted = true
-	g.dasActive = false
-	g.dasTimer = time.Now()
-
-	// Start DAS delay then ARR.
-	d := time.Duration(g.dasInterval) * time.Millisecond
-	return g, tea.Tick(d, func(t time.Time) tea.Msg {
-		return DASTickMsg{Time: t}
-	})
-}
-
 // View renders the gameplay screen.
 func (g GameModel) View(s Styles, cfg *config.Config, rainbow *theme.RainbowState) string {
+	t := s.Theme
+
 	board := RenderBoard(g.engine, s, cfg.GhostPiece, cfg.ShowGrid, rainbow)
 	hold := RenderHoldPanel(g.engine.HoldPiece, g.engine.HoldUsed, s, rainbow)
 	next := RenderNextPanel(g.engine.NextPieces(), s, rainbow)
 	stats := RenderStatsPanel(g.engine.Scorer, s)
 
+	// Build left panel
+	var leftSb strings.Builder
+	leftSb.WriteString(hold)
+	leftSb.WriteString("\n\n")
+	leftSb.WriteString(stats)
+
 	leftPanel := lipgloss.NewStyle().
 		Width(12).
-		MarginRight(1).
-		Render(lipgloss.JoinVertical(lipgloss.Left, hold, "", stats))
+		Render(leftSb.String())
 
+	// Build right panel
 	rightPanel := lipgloss.NewStyle().
 		Width(12).
-		MarginLeft(1).
 		Render(next)
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, board, rightPanel)
+	// Build help text
+	helpStyle := lipgloss.NewStyle().Foreground(t.SubAlt)
+	help := helpStyle.Render(fmt.Sprintf("h/l move  j drop  k rotate  c hold  space hard drop  p pause"))
+
+	// Combine panels
+	gameRow := lipgloss.JoinHorizontal(lipgloss.Top,
+		leftPanel,
+		"  ",
+		board,
+		"  ",
+		rightPanel,
+	)
+
+	return lipgloss.JoinVertical(lipgloss.Center, gameRow, "", help)
 }

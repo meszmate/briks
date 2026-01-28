@@ -73,6 +73,16 @@ func (e *Engine) NextPieces() []PieceType {
 	return e.Bag.Preview(e.PreviewCount)
 }
 
+// canMoveDown checks if the current piece can move down.
+func (e *Engine) canMoveDown() bool {
+	if e.Current == nil {
+		return false
+	}
+	test := e.Current.Clone()
+	test.Pos.Row++
+	return e.Board.ValidPosition(&test)
+}
+
 // MoveLeft moves the current piece left.
 func (e *Engine) MoveLeft() bool {
 	if e.State != StatePlaying || e.Current == nil {
@@ -105,8 +115,8 @@ func (e *Engine) MoveRight() bool {
 	return false
 }
 
-// MoveDown moves the current piece down by one (soft drop).
-// Returns true if successful. If unsuccessful, starts lock delay.
+// MoveDown moves the current piece down by one.
+// Returns true if successful.
 func (e *Engine) MoveDown() bool {
 	if e.State != StatePlaying || e.Current == nil {
 		return false
@@ -116,12 +126,10 @@ func (e *Engine) MoveDown() bool {
 	if e.Board.ValidPosition(&test) {
 		e.Current.Pos.Row++
 		e.LastMoveWasRotation = false
+		// Reset lock when piece moves down
+		e.LockStarted = false
+		e.LockResets = 0
 		return true
-	}
-	// Can't move down — start lock delay if not started.
-	if !e.LockStarted {
-		e.LockStarted = true
-		e.LockTimer = time.Now()
 	}
 	return false
 }
@@ -141,12 +149,7 @@ func (e *Engine) HardDrop() LineClearType {
 		return ClearNone
 	}
 	dropDist := 0
-	for {
-		test := e.Current.Clone()
-		test.Pos.Row++
-		if !e.Board.ValidPosition(&test) {
-			break
-		}
+	for e.canMoveDown() {
 		e.Current.Pos.Row++
 		dropDist++
 	}
@@ -219,46 +222,50 @@ func (e *Engine) Hold() bool {
 	return true
 }
 
-// Tick advances the game by one gravity step. Returns the clear type if a piece was locked.
+// Tick advances the game by one gravity step.
 func (e *Engine) Tick() LineClearType {
 	if e.State != StatePlaying || e.Current == nil {
 		return ClearNone
 	}
 
-	if !e.MoveDown() {
-		// Piece can't move down.
-		if e.LockStarted && time.Since(e.LockTimer) >= LockDelay {
-			return e.lockPiece()
-		}
-		if !e.LockStarted {
-			e.LockStarted = true
-			e.LockTimer = time.Now()
-		}
-	} else {
-		// Moved down successfully — reset lock.
-		e.LockStarted = false
-		e.LockResets = 0
+	// Try to move down
+	if e.MoveDown() {
+		return ClearNone
+	}
+
+	// Piece can't move down - start or continue lock delay
+	if !e.LockStarted {
+		e.LockStarted = true
+		e.LockTimer = time.Now()
+		return ClearNone
+	}
+
+	// Check if lock delay expired
+	if time.Since(e.LockTimer) >= LockDelay {
+		return e.lockPiece()
 	}
 
 	return ClearNone
 }
 
-// CheckLock checks if the lock delay has expired. Called independently of gravity.
+// CheckLock checks if the lock delay has expired.
 func (e *Engine) CheckLock() LineClearType {
 	if e.State != StatePlaying || e.Current == nil || !e.LockStarted {
 		return ClearNone
 	}
-	if time.Since(e.LockTimer) >= LockDelay {
-		// Verify piece still can't move down.
-		test := e.Current.Clone()
-		test.Pos.Row++
-		if !e.Board.ValidPosition(&test) {
-			return e.lockPiece()
-		}
-		// Piece can move down again — cancel lock.
+
+	// If piece can now move down, cancel lock
+	if e.canMoveDown() {
 		e.LockStarted = false
 		e.LockResets = 0
+		return ClearNone
 	}
+
+	// Check if lock delay expired
+	if time.Since(e.LockTimer) >= LockDelay {
+		return e.lockPiece()
+	}
+
 	return ClearNone
 }
 
@@ -288,12 +295,15 @@ func (e *Engine) lockPiece() LineClearType {
 	// Detect T-spin before placing.
 	isTSpin := e.detectTSpin()
 
+	// Place the piece on the board
 	e.Board.PlacePiece(e.Current)
 	e.PiecesPlaced++
 
+	// Clear lines
 	linesCleared, _ := e.Board.ClearLines()
 	clearType := e.Scorer.AddLineClear(linesCleared, isTSpin)
 
+	// Spawn next piece
 	if !e.spawnPiece() {
 		return clearType
 	}

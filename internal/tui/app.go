@@ -1,7 +1,7 @@
 package tui
 
 import (
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/meszmate/briks/internal/config"
 	"github.com/meszmate/briks/internal/theme"
@@ -37,13 +37,13 @@ type App struct {
 	styles     Styles
 	rainbow    *theme.RainbowState
 
-	menu      MenuModel
-	game      GameModel
-	pause     PauseModel
-	gameOver  GameOverModel
-	settings  SettingsModel
-	scores    HighScoresModel
-	keyBinds  KeyBindsModel
+	menu     MenuModel
+	game     GameModel
+	pause    PauseModel
+	gameOver GameOverModel
+	settings SettingsModel
+	scores   HighScoresModel
+	keyBinds KeyBindsModel
 }
 
 // NewApp creates the root application model.
@@ -81,13 +81,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case tea.KeyMsg:
-		// Global quit: ctrl+c.
 		if msg.String() == "ctrl+c" {
 			return a, tea.Quit
 		}
 	}
-
-	var cmd tea.Cmd
 
 	switch a.screen {
 	case ScreenMenu:
@@ -106,7 +103,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.updateKeyBinds(msg)
 	}
 
-	return a, cmd
+	return a, nil
 }
 
 func (a App) View() string {
@@ -114,7 +111,7 @@ func (a App) View() string {
 		msg := lipgloss.NewStyle().
 			Foreground(a.styles.Theme.Main).
 			Bold(true).
-			Render("Terminal too small!\nMinimum: 60x28")
+			Render("Terminal too small\nMinimum: 60x28")
 		return lipgloss.Place(a.width, a.height, lipgloss.Center, lipgloss.Center, msg)
 	}
 
@@ -137,11 +134,7 @@ func (a App) View() string {
 		content = a.keyBinds.View(a.styles)
 	}
 
-	return lipgloss.NewStyle().
-		Background(a.styles.Theme.BG).
-		Width(a.width).
-		Height(a.height).
-		Render(lipgloss.Place(a.width, a.height, lipgloss.Center, lipgloss.Center, content))
+	return lipgloss.Place(a.width, a.height, lipgloss.Center, lipgloss.Center, content)
 }
 
 // refreshedStyles returns new styles from the current config theme.
@@ -162,7 +155,7 @@ func (a App) updateMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.menu.Next()
 		case "k", "up":
 			a.menu.Prev()
-		case "enter":
+		case "enter", "l":
 			switch a.menu.Selected() {
 			case 0: // Play
 				a.game = NewGameModel(a.cfg, a.keys, a.rainbow)

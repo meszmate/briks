@@ -28,18 +28,26 @@ make build
 - Persistent configuration and high scores
 - Fully customizable key bindings
 
-## Controls
+## Controls (vim-style)
 
 | Key | Action |
 |-----|--------|
-| Left / A | Move left |
-| Right / D | Move right |
-| Down / S | Soft drop |
-| Up / W | Rotate clockwise |
-| Z | Rotate counter-clockwise |
-| Space | Hard drop |
-| C | Hold piece |
-| P / Esc | Pause |
+| h / Left | Move left |
+| l / Right | Move right |
+| j / Down | Soft drop |
+| k / Up | Rotate clockwise |
+| z | Rotate counter-clockwise |
+| Space / Enter | Hard drop |
+| c | Hold piece |
+| p / Esc | Pause |
+
+## Menu Navigation
+
+| Key | Action |
+|-----|--------|
+| j / k | Navigate |
+| l / Enter | Select |
+| q | Quit / Back |
 
 ## License
 

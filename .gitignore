@@ -1,4 +1,5 @@
 /briks
+/dist/
 *.exe
 *.dll
 *.so

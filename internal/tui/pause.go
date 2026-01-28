@@ -16,24 +16,29 @@ func NewPauseModel() PauseModel {
 
 // View renders the pause screen.
 func (p PauseModel) View(s Styles) string {
+	t := s.Theme
 	var sb strings.Builder
 
 	title := lipgloss.NewStyle().
-		Foreground(s.Theme.Main).
+		Foreground(t.Main).
 		Bold(true).
 		Render("PAUSED")
 
 	sb.WriteString(title)
 	sb.WriteString("\n\n")
-	sb.WriteString(lipgloss.NewStyle().Foreground(s.Theme.FG).Render("p/esc  resume"))
+
+	dimStyle := lipgloss.NewStyle().Foreground(t.Sub)
+	keyStyle := lipgloss.NewStyle().Foreground(t.FG)
+
+	sb.WriteString(keyStyle.Render("p") + dimStyle.Render(" resume"))
 	sb.WriteString("\n")
-	sb.WriteString(lipgloss.NewStyle().Foreground(s.Theme.FG).Render("r      restart"))
+	sb.WriteString(keyStyle.Render("r") + dimStyle.Render(" restart"))
 	sb.WriteString("\n")
-	sb.WriteString(lipgloss.NewStyle().Foreground(s.Theme.FG).Render("q      quit to menu"))
+	sb.WriteString(keyStyle.Render("q") + dimStyle.Render(" quit"))
 
 	return lipgloss.NewStyle().
-		Padding(2, 4).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(s.Theme.Sub).
+		Padding(1, 3).
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(t.SubAlt).
 		Render(sb.String())
 }

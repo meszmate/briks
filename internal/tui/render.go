@@ -10,7 +10,11 @@ import (
 )
 
 const (
-	cellWidth = 2 // 2 characters per cell for visual squareness
+	// Block characters for pieces (foreground colored, no background)
+	blockFull  = "██"
+	blockGhost = "░░"
+	blockEmpty = "  "
+	blockGrid  = "· "
 )
 
 // RenderBoard renders the visible portion of the board with the active and ghost pieces.
@@ -18,13 +22,17 @@ func RenderBoard(engine *game.Engine, styles Styles, showGhost, showGrid bool, r
 	t := styles.Theme
 
 	// Build a visible grid with colors.
-	grid := make([][]lipgloss.Color, game.VisibleRows)
+	type cell struct {
+		color   lipgloss.Color
+		isGhost bool
+	}
+	grid := make([][]cell, game.VisibleRows)
 	for r := 0; r < game.VisibleRows; r++ {
-		grid[r] = make([]lipgloss.Color, game.BoardWidth)
+		grid[r] = make([]cell, game.BoardWidth)
 		for c := 0; c < game.BoardWidth; c++ {
-			cell := engine.Board.GetVisibleCell(r, c)
-			if cell != game.Empty {
-				grid[r][c] = pieceColorToLipgloss(cell, t, rainbow)
+			cellColor := engine.Board.GetVisibleCell(r, c)
+			if cellColor != game.Empty {
+				grid[r][c] = cell{color: pieceColorToLipgloss(cellColor, t, rainbow)}
 			}
 		}
 	}
@@ -32,11 +40,12 @@ func RenderBoard(engine *game.Engine, styles Styles, showGhost, showGrid bool, r
 	// Draw ghost piece.
 	if showGhost && engine.Current != nil {
 		ghostCells := engine.GhostCells()
+		ghostColor := pieceColorToLipgloss(game.PieceColor(engine.Current.Type), t, rainbow)
 		for _, gc := range ghostCells {
 			vr := gc.Row - game.BufferRows
 			if vr >= 0 && vr < game.VisibleRows && gc.Col >= 0 && gc.Col < game.BoardWidth {
-				if grid[vr][gc.Col] == "" {
-					grid[vr][gc.Col] = t.Ghost
+				if grid[vr][gc.Col].color == "" {
+					grid[vr][gc.Col] = cell{color: ghostColor, isGhost: true}
 				}
 			}
 		}
@@ -46,38 +55,44 @@ func RenderBoard(engine *game.Engine, styles Styles, showGhost, showGrid bool, r
 	if engine.Current != nil {
 		cells := engine.Current.Cells()
 		color := pieceColorToLipgloss(game.PieceColor(engine.Current.Type), t, rainbow)
-		for _, cell := range cells {
-			vr := cell.Row - game.BufferRows
-			if vr >= 0 && vr < game.VisibleRows && cell.Col >= 0 && cell.Col < game.BoardWidth {
-				grid[vr][cell.Col] = color
+		for _, c := range cells {
+			vr := c.Row - game.BufferRows
+			if vr >= 0 && vr < game.VisibleRows && c.Col >= 0 && c.Col < game.BoardWidth {
+				grid[vr][c.Col] = cell{color: color, isGhost: false}
 			}
 		}
 	}
 
 	// Render the grid to string.
 	var sb strings.Builder
+	borderStyle := lipgloss.NewStyle().Foreground(t.Sub)
 
 	// Top border.
-	sb.WriteString(lipgloss.NewStyle().Foreground(t.Sub).Render("╭" + strings.Repeat("──", game.BoardWidth) + "╮"))
+	sb.WriteString(borderStyle.Render("┌" + strings.Repeat("──", game.BoardWidth) + "┐"))
 	sb.WriteString("\n")
 
 	for r := 0; r < game.VisibleRows; r++ {
-		sb.WriteString(lipgloss.NewStyle().Foreground(t.Sub).Render("│"))
+		sb.WriteString(borderStyle.Render("│"))
 		for c := 0; c < game.BoardWidth; c++ {
-			if grid[r][c] != "" {
-				sb.WriteString(lipgloss.NewStyle().Background(grid[r][c]).Render("  "))
+			if grid[r][c].color != "" {
+				style := lipgloss.NewStyle().Foreground(grid[r][c].color)
+				if grid[r][c].isGhost {
+					sb.WriteString(style.Render(blockGhost))
+				} else {
+					sb.WriteString(style.Render(blockFull))
+				}
 			} else if showGrid {
-				sb.WriteString(lipgloss.NewStyle().Background(t.BG).Foreground(t.Grid).Render(" ·"))
+				sb.WriteString(lipgloss.NewStyle().Foreground(t.SubAlt).Render(blockGrid))
 			} else {
-				sb.WriteString(lipgloss.NewStyle().Background(t.BG).Render("  "))
+				sb.WriteString(blockEmpty)
 			}
 		}
-		sb.WriteString(lipgloss.NewStyle().Foreground(t.Sub).Render("│"))
+		sb.WriteString(borderStyle.Render("│"))
 		sb.WriteString("\n")
 	}
 
 	// Bottom border.
-	sb.WriteString(lipgloss.NewStyle().Foreground(t.Sub).Render("╰" + strings.Repeat("──", game.BoardWidth) + "╯"))
+	sb.WriteString(borderStyle.Render("└" + strings.Repeat("──", game.BoardWidth) + "┘"))
 
 	return sb.String()
 }
@@ -114,13 +129,14 @@ func RenderPiecePreview(pt game.PieceType, t theme.Theme, rainbow *theme.Rainbow
 		grid[off.Row-minR][off.Col-minC] = true
 	}
 
+	style := lipgloss.NewStyle().Foreground(color)
 	var sb strings.Builder
 	for r := 0; r < height; r++ {
 		for c := 0; c < width; c++ {
 			if grid[r][c] {
-				sb.WriteString(lipgloss.NewStyle().Background(color).Render("  "))
+				sb.WriteString(style.Render(blockFull))
 			} else {
-				sb.WriteString(lipgloss.NewStyle().Background(t.BG).Render("  "))
+				sb.WriteString(blockEmpty)
 			}
 		}
 		if r < height-1 {
@@ -136,40 +152,47 @@ func RenderHoldPanel(holdPiece *game.PieceType, holdUsed bool, styles Styles, ra
 	t := styles.Theme
 	var sb strings.Builder
 
-	sb.WriteString(styles.PanelTitle.Render("HOLD"))
+	titleStyle := lipgloss.NewStyle().Foreground(t.Sub).Bold(true)
+	borderStyle := lipgloss.NewStyle().Foreground(t.SubAlt)
+
+	sb.WriteString(titleStyle.Render("HOLD"))
 	sb.WriteString("\n")
-	sb.WriteString(lipgloss.NewStyle().Foreground(t.Sub).Render("╭────────╮"))
+	sb.WriteString(borderStyle.Render("┌────────┐"))
 	sb.WriteString("\n")
 
 	if holdPiece != nil {
 		preview := RenderPiecePreview(*holdPiece, t, rainbow)
 		lines := strings.Split(preview, "\n")
+
+		// Center the piece in the box (4 cells wide = 8 chars)
 		for i := 0; i < 2; i++ {
-			sb.WriteString(lipgloss.NewStyle().Foreground(t.Sub).Render("│"))
+			sb.WriteString(borderStyle.Render("│"))
 			if i < len(lines) {
 				content := lines[i]
 				if holdUsed {
 					content = lipgloss.NewStyle().Faint(true).Render(content)
 				}
-				// Pad to 8 chars (4 cells * 2 chars).
-				padded := content + lipgloss.NewStyle().Background(t.BG).Render(strings.Repeat(" ", 8-lipgloss.Width(content)))
-				sb.WriteString(padded)
+				width := lipgloss.Width(content)
+				pad := (8 - width) / 2
+				sb.WriteString(strings.Repeat(" ", pad))
+				sb.WriteString(content)
+				sb.WriteString(strings.Repeat(" ", 8-width-pad))
 			} else {
-				sb.WriteString(lipgloss.NewStyle().Background(t.BG).Render("        "))
+				sb.WriteString("        ")
 			}
-			sb.WriteString(lipgloss.NewStyle().Foreground(t.Sub).Render("│"))
+			sb.WriteString(borderStyle.Render("│"))
 			sb.WriteString("\n")
 		}
 	} else {
 		for i := 0; i < 2; i++ {
-			sb.WriteString(lipgloss.NewStyle().Foreground(t.Sub).Render("│"))
-			sb.WriteString(lipgloss.NewStyle().Background(t.BG).Render("        "))
-			sb.WriteString(lipgloss.NewStyle().Foreground(t.Sub).Render("│"))
+			sb.WriteString(borderStyle.Render("│"))
+			sb.WriteString("        ")
+			sb.WriteString(borderStyle.Render("│"))
 			sb.WriteString("\n")
 		}
 	}
 
-	sb.WriteString(lipgloss.NewStyle().Foreground(t.Sub).Render("╰────────╯"))
+	sb.WriteString(borderStyle.Render("└────────┘"))
 
 	return sb.String()
 }
@@ -179,65 +202,77 @@ func RenderNextPanel(pieces []game.PieceType, styles Styles, rainbow *theme.Rain
 	t := styles.Theme
 	var sb strings.Builder
 
-	sb.WriteString(styles.PanelTitle.Render("NEXT"))
+	titleStyle := lipgloss.NewStyle().Foreground(t.Sub).Bold(true)
+	borderStyle := lipgloss.NewStyle().Foreground(t.SubAlt)
+
+	sb.WriteString(titleStyle.Render("NEXT"))
 	sb.WriteString("\n")
-	sb.WriteString(lipgloss.NewStyle().Foreground(t.Sub).Render("╭────────╮"))
+	sb.WriteString(borderStyle.Render("┌────────┐"))
 	sb.WriteString("\n")
 
 	for i, pt := range pieces {
 		preview := RenderPiecePreview(pt, t, rainbow)
 		lines := strings.Split(preview, "\n")
 		for j := 0; j < 2; j++ {
-			sb.WriteString(lipgloss.NewStyle().Foreground(t.Sub).Render("│"))
+			sb.WriteString(borderStyle.Render("│"))
 			if j < len(lines) {
 				content := lines[j]
-				padded := content + lipgloss.NewStyle().Background(t.BG).Render(strings.Repeat(" ", 8-lipgloss.Width(content)))
-				sb.WriteString(padded)
+				width := lipgloss.Width(content)
+				pad := (8 - width) / 2
+				sb.WriteString(strings.Repeat(" ", pad))
+				sb.WriteString(content)
+				sb.WriteString(strings.Repeat(" ", 8-width-pad))
 			} else {
-				sb.WriteString(lipgloss.NewStyle().Background(t.BG).Render("        "))
+				sb.WriteString("        ")
 			}
-			sb.WriteString(lipgloss.NewStyle().Foreground(t.Sub).Render("│"))
+			sb.WriteString(borderStyle.Render("│"))
 			sb.WriteString("\n")
 		}
 		if i < len(pieces)-1 {
-			sb.WriteString(lipgloss.NewStyle().Foreground(t.Sub).Render("│"))
-			sb.WriteString(lipgloss.NewStyle().Background(t.BG).Render("        "))
-			sb.WriteString(lipgloss.NewStyle().Foreground(t.Sub).Render("│"))
+			sb.WriteString(borderStyle.Render("│        │"))
 			sb.WriteString("\n")
 		}
 	}
 
-	sb.WriteString(lipgloss.NewStyle().Foreground(t.Sub).Render("╰────────╯"))
+	sb.WriteString(borderStyle.Render("└────────┘"))
 
 	return sb.String()
 }
 
 // RenderStatsPanel renders the score/level/lines panel.
 func RenderStatsPanel(scorer *game.Scorer, styles Styles) string {
+	t := styles.Theme
 	var sb strings.Builder
 
-	sb.WriteString(styles.PanelTitle.Render("SCORE"))
+	labelStyle := lipgloss.NewStyle().Foreground(t.Sub)
+	valueStyle := lipgloss.NewStyle().Foreground(t.FG).Bold(true)
+	highlightStyle := lipgloss.NewStyle().Foreground(t.Main).Bold(true)
+
+	sb.WriteString(labelStyle.Render("SCORE"))
 	sb.WriteString("\n")
-	sb.WriteString(styles.Highlight.Render(fmt.Sprintf("%d", scorer.Score)))
+	sb.WriteString(highlightStyle.Render(fmt.Sprintf("%d", scorer.Score)))
 	sb.WriteString("\n\n")
 
-	sb.WriteString(styles.PanelTitle.Render("LEVEL"))
+	sb.WriteString(labelStyle.Render("LEVEL"))
 	sb.WriteString("\n")
-	sb.WriteString(styles.Text.Render(fmt.Sprintf("%d", scorer.Level)))
+	sb.WriteString(valueStyle.Render(fmt.Sprintf("%d", scorer.Level)))
 	sb.WriteString("\n\n")
 
-	sb.WriteString(styles.PanelTitle.Render("LINES"))
+	sb.WriteString(labelStyle.Render("LINES"))
 	sb.WriteString("\n")
-	sb.WriteString(styles.Text.Render(fmt.Sprintf("%d", scorer.Lines)))
-	sb.WriteString("\n\n")
+	sb.WriteString(valueStyle.Render(fmt.Sprintf("%d", scorer.Lines)))
 
-	sb.WriteString(styles.PanelTitle.Render("COMBO"))
-	sb.WriteString("\n")
-	combo := scorer.Combo
-	if combo > 0 {
-		combo-- // display active combo count
+	if scorer.Combo > 1 {
+		sb.WriteString("\n\n")
+		sb.WriteString(labelStyle.Render("COMBO"))
+		sb.WriteString("\n")
+		sb.WriteString(highlightStyle.Render(fmt.Sprintf("%d", scorer.Combo-1)))
 	}
-	sb.WriteString(styles.Text.Render(fmt.Sprintf("%d", combo)))
+
+	if scorer.BackToBack {
+		sb.WriteString("\n\n")
+		sb.WriteString(highlightStyle.Render("B2B"))
+	}
 
 	return sb.String()
 }
@@ -277,9 +312,7 @@ func pieceColorToLipgloss(c game.CellColor, t theme.Theme, rainbow *theme.Rainbo
 		return t.PieceJ
 	case game.ColorL:
 		return t.PieceL
-	case game.ColorGhost:
-		return t.Ghost
 	default:
-		return t.BG
+		return t.FG
 	}
 }
