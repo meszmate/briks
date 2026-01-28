@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -172,7 +171,7 @@ func (g GameModel) View(s Styles, cfg *config.Config, rainbow *theme.RainbowStat
 
 	// Build help text
 	helpStyle := lipgloss.NewStyle().Foreground(t.SubAlt)
-	help := helpStyle.Render(fmt.Sprintf("h/l move  j drop  k rotate  c hold  space hard drop  p pause"))
+	help := helpStyle.Render("h/l move  j drop  k rotate  c hold  space hard drop  p pause")
 
 	// Combine panels
 	gameRow := lipgloss.JoinHorizontal(lipgloss.Top,

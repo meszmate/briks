@@ -39,7 +39,7 @@ func NewGameOverModel(engine *game.Engine, hs *config.HighScores) GameOverModel 
 			Date:   time.Now(),
 		}
 		m.rank = hs.Add(entry)
-		hs.Save()
+		_ = hs.Save()
 	}
 
 	return m

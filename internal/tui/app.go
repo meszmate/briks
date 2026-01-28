@@ -238,7 +238,7 @@ func (a App) updateSettings(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "esc", "q":
-			a.cfg.Save()
+			_ = a.cfg.Save()
 			a.styles = refreshedStyles(a.cfg)
 			a.screen = ScreenMenu
 			a.menu = NewMenuModel(a.styles)
@@ -273,14 +273,14 @@ func (a App) updateKeyBinds(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		switch msg.String() {
 		case "q":
-			a.keys.Save()
+			_ = a.keys.Save()
 			a.screen = ScreenMenu
 			a.menu = NewMenuModel(a.styles)
 		case "esc":
 			if a.keyBinds.listening {
 				a.keyBinds.listening = false
 			} else {
-				a.keys.Save()
+				_ = a.keys.Save()
 				a.screen = ScreenMenu
 				a.menu = NewMenuModel(a.styles)
 			}
